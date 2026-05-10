@@ -1,0 +1,26 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+env/
+.env
+.env.local
+
+# IDE / AI assistants
+.vscode/
+.idea/
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Локальные данные (накапливаются при работе сервера)
+prices_real.json
+prices_history.json
+wfp_cache.json
+
+# Логи
+*.log

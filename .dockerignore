@@ -1,0 +1,14 @@
+__pycache__
+*.pyc
+*.pyo
+.git
+.gitignore
+.vscode
+.idea
+.env
+.venv
+venv/
+*.log
+debug_*.py
+*.png
+DEPLOY.md

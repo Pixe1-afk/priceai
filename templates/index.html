@@ -1,0 +1,1609 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PriceAI — Прогноз цен в Москве</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #22263a;
+      --border: #2e3248;
+      --accent: #6c63ff;
+      --accent2: #00d4aa;
+      --red: #ff5c6c;
+      --text: #e8eaf0;
+      --text2: #8b8fa8;
+      --radius: 16px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      background: linear-gradient(135deg, #1a1d27 0%, #12141e 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 20px 40px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .logo {
+      width: 42px; height: 42px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px;
+    }
+    header h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.3px; }
+    header span { font-size: 13px; color: var(--text2); margin-left: 0; }
+    .header-badge {
+      margin-left: auto;
+      background: rgba(108,99,255,0.15);
+      border: 1px solid rgba(108,99,255,0.3);
+      color: var(--accent);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    /* ── Layout ── */
+    .container { max-width: 1300px; margin: 0 auto; padding: 32px 24px; }
+    .grid { display: grid; grid-template-columns: 320px 1fr; gap: 24px; }
+    @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+
+    /* ── Panel ── */
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+    }
+    .panel h2 {
+      font-size: 14px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--text2);
+      margin-bottom: 20px;
+    }
+
+    /* ── Form controls ── */
+    label { display: block; font-size: 13px; color: var(--text2); margin-bottom: 8px; margin-top: 18px; }
+    label:first-of-type { margin-top: 0; }
+
+    select {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 12px 16px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-family: inherit;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238b8fa8' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    select:focus { outline: none; border-color: var(--accent); }
+
+    /* ── Period buttons ── */
+    .period-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .period-btn {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text2);
+      padding: 10px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+    }
+    .period-btn:hover { border-color: var(--accent); color: var(--text); }
+    .period-btn.active {
+      background: rgba(108,99,255,0.15);
+      border-color: var(--accent);
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    /* ── Forecast button ── */
+    .btn-predict {
+      width: 100%;
+      margin-top: 24px;
+      background: linear-gradient(135deg, var(--accent), #8b5cf6);
+      color: #fff;
+      border: none;
+      padding: 14px;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+    .btn-predict:hover { opacity: 0.9; }
+    .btn-predict:active { transform: scale(0.98); }
+    .btn-predict:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── Stats cards ── */
+    .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+    @media (max-width: 900px) { .stats-row { grid-template-columns: 1fr 1fr; } }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px;
+    }
+    .stat-card .label { font-size: 12px; color: var(--text2); margin-bottom: 8px; }
+    .stat-card .value { font-size: 26px; font-weight: 700; }
+    .stat-card .sub { font-size: 13px; color: var(--text2); margin-top: 4px; }
+    .up { color: var(--red); }
+    .down { color: var(--accent2); }
+    .neutral { color: var(--text); }
+
+    /* ── Chart container ── */
+    .chart-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+    .chart-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .chart-title { font-size: 18px; font-weight: 600; }
+    .chart-subtitle { font-size: 13px; color: var(--text2); margin-top: 4px; }
+    .chart-tabs { display: flex; gap: 8px; }
+    .chart-tab {
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text2);
+      font-family: inherit;
+      transition: all 0.2s;
+    }
+    .chart-tab.active { background: rgba(108,99,255,0.15); border-color: var(--accent); color: var(--accent); }
+    canvas { max-height: 380px; }
+
+    /* ── Compare table ── */
+    .compare-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+    }
+    .compare-title { font-size: 16px; font-weight: 600; margin-bottom: 16px; }
+    table { width: 100%; border-collapse: collapse; }
+    th {
+      text-align: left;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text2);
+      padding: 0 16px 12px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    td {
+      padding: 14px 16px;
+      font-size: 14px;
+      border-bottom: 1px solid rgba(46,50,72,0.5);
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(108,99,255,0.04); }
+    .store-dot {
+      display: inline-block;
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+    .best-badge {
+      background: rgba(0,212,170,0.15);
+      color: var(--accent2);
+      border-radius: 6px;
+      padding: 2px 8px;
+      font-size: 11px;
+      font-weight: 600;
+      margin-left: 8px;
+    }
+
+    /* ── Loading ── */
+    .spinner {
+      display: none;
+      width: 20px; height: 20px;
+      border: 2px solid rgba(255,255,255,0.2);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin: 0 auto;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── AI chip ── */
+    .ai-note {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(108,99,255,0.08);
+      border: 1px solid rgba(108,99,255,0.2);
+      border-radius: 12px;
+      padding: 14px 16px;
+      font-size: 13px;
+      color: var(--text2);
+      margin-bottom: 24px;
+    }
+    .ai-note .icon { font-size: 20px; flex-shrink: 0; }
+
+    .placeholder {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text2);
+    }
+    .placeholder .big { font-size: 48px; margin-bottom: 12px; }
+    .placeholder p { font-size: 15px; }
+
+    /* ── Currency toggle ── */
+    .currency-toggle { display: flex; gap: 8px; margin-top: 8px; }
+    .cur-btn {
+      flex: 1;
+      padding: 9px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text2);
+      transition: all 0.2s;
+    }
+    .cur-btn.active {
+      background: rgba(108,99,255,0.18);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+/* ── Live price ticker ── */
+    .live-ticker {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(0,212,170,0.08);
+      border: 1px solid rgba(0,212,170,0.25);
+      border-radius: 10px;
+      padding: 6px 14px;
+      font-size: 14px;
+    }
+    .live-dot-sm {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--accent2);
+      animation: pulse-dot 1.5s infinite;
+      flex-shrink: 0;
+    }
+    @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:0.25} }
+    .live-ticker .price { font-weight: 700; color: var(--accent2); }
+    .live-ticker .source { font-size: 11px; color: var(--text2); }
+
+    /* ── Back button ── */
+    .btn-back {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text2);
+      padding: 9px 20px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-back:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* ── Welcome screen ── */
+    #welcomeScreen {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 60px 0;
+    }
+    .welcome-box {
+      text-align: center;
+      max-width: 600px;
+      width: 100%;
+    }
+    .welcome-icon { font-size: 56px; margin-bottom: 20px; }
+    .welcome-box h2 { font-size: 28px; font-weight: 700; margin-bottom: 10px; }
+    .welcome-box p { font-size: 16px; color: var(--text2); margin-bottom: 36px; }
+    .welcome-cards {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+    @media (max-width: 700px) { .welcome-cards { grid-template-columns: 1fr; } }
+    .welcome-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 28px 16px;
+      cursor: pointer;
+      transition: border-color 0.2s, transform 0.15s, background 0.2s;
+    }
+    .welcome-card:hover {
+      border-color: var(--accent);
+      background: rgba(108,99,255,0.07);
+      transform: translateY(-4px);
+    }
+    .wc-icon  { font-size: 36px; margin-bottom: 12px; }
+    .wc-title { font-size: 17px; font-weight: 700; margin-bottom: 6px; }
+    .wc-sub   { font-size: 13px; color: var(--text2); }
+
+    /* ── Новостная лента ── */
+    .news-ticker {
+      margin-top: 28px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      position: relative;
+    }
+    .news-ticker-head {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(108,99,255,0.06);
+      font-size: 13px;
+      color: var(--text1);
+    }
+    .news-ticker-head .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #ef4444;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+    .news-ticker-body {
+      position: relative;
+      height: 220px;
+      overflow: hidden;
+      padding: 8px 14px;
+    }
+    .news-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--text1);
+      text-decoration: none;
+      font-size: 13px;
+      padding: 9px 12px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      position: absolute;
+      left: 14px; right: 14px;
+      opacity: 0;
+      transform: translateY(40px) scale(0.96);
+      filter: blur(4px);
+      will-change: opacity, transform, bottom, filter;
+      transition:
+        opacity   0.7s cubic-bezier(0.22, 1, 0.36, 1),
+        transform 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+        filter    0.7s cubic-bezier(0.22, 1, 0.36, 1),
+        bottom    0.9s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .news-item.visible {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      filter: blur(0);
+    }
+    .news-item.leaving {
+      opacity: 0;
+      transform: translateY(-30px) scale(0.96);
+      filter: blur(4px);
+    }
+    .news-item:hover { color: var(--accent); }
+    .news-item .badge {
+      font-size: 10px; font-weight: 700;
+      padding: 2px 7px; border-radius: 6px;
+      background: rgba(108,99,255,0.18);
+      color: var(--accent);
+      text-transform: uppercase;
+    }
+    .news-item .badge-food   { background: rgba(34,197,94,0.18);  color: #4ade80; }
+    .news-item .badge-fuel   { background: rgba(251,146,60,0.18); color: #fb923c; }
+    .news-item .badge-stocks { background: rgba(34,211,238,0.18); color: #22d3ee; }
+    .news-item .src { color: var(--text2); font-size: 11px; }
+
+    /* ── Category tabs ── */
+    .cat-tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+    .cat-tab {
+      padding: 10px 24px;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text2);
+      transition: all 0.2s;
+    }
+    .cat-tab:hover { border-color: var(--accent); color: var(--text); }
+    .cat-tab.active {
+      background: linear-gradient(135deg, var(--accent), #8b5cf6);
+      border-color: transparent;
+      color: #fff;
+    }
+
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">📊</div>
+  <div>
+    <h1>PriceAI</h1>
+    <span id="headerSub">Прогноз цен</span>
+  </div>
+  <div class="header-badge">🤖 ML-прогноз</div>
+</header>
+
+<div class="container">
+
+  <!-- скрытые кнопки категорий нужны только для JS -->
+  <span id="tabFood"   style="display:none"></span>
+  <span id="tabFuel"   style="display:none"></span>
+  <span id="tabStocks" style="display:none"></span>
+  <span id="tabCrypto" style="display:none"></span>
+
+  <!-- ── Кнопка назад ── -->
+  <div id="backRow" style="display:none; margin-bottom:20px">
+    <button class="btn-back" onclick="goHome()">← Вернуться на главную</button>
+  </div>
+
+  <!-- ── Экран выбора категории ── -->
+  <div id="welcomeScreen">
+    <div class="welcome-box">
+      <div class="welcome-icon">📊</div>
+      <h2>Добро пожаловать в PriceAI</h2>
+      <p>Выберите категорию, чтобы начать</p>
+      <div class="welcome-cards">
+        <div class="welcome-card" onclick="switchCategory('food')">
+          <div class="wc-icon">🛒</div>
+          <div class="wc-title">Продукты</div>
+          <div class="wc-sub">Цены на продукты</div>
+        </div>
+        <div class="welcome-card" onclick="switchCategory('fuel')">
+          <div class="wc-icon">⛽</div>
+          <div class="wc-title">Бензин</div>
+          <div class="wc-sub">Цены на АЗС</div>
+        </div>
+        <div class="welcome-card" onclick="switchCategory('stocks')">
+          <div class="wc-icon">📈</div>
+          <div class="wc-title">Акции РФ</div>
+          <div class="wc-sub">Цены акций Мосбиржи</div>
+        </div>
+      </div>
+
+      <!-- Новостная лента -->
+      <div class="news-ticker" id="newsTicker" style="display:none">
+        <div class="news-ticker-head">
+          <span class="dot"></span>
+          <span style="font-weight:600">Новости рынка</span>
+          <span style="color:var(--text2); font-size:12px">· продукты, бензин, акции РФ</span>
+        </div>
+        <div class="news-ticker-body" id="newsTickerBody"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid" id="mainGrid" style="display:none">
+
+    <!-- ── Левая панель ── -->
+    <div>
+      <div class="panel">
+        <h2>Параметры</h2>
+
+        <!-- Продукты (магазины РФ) -->
+        <div id="foodControls">
+          <label>Продукт</label>
+          <select id="productSelect"></select>
+
+          <!-- Текущие цены в выбранном городе -->
+          <div id="cityPricesPanel" style="margin-top:14px; font-size:12px; color:var(--text2); background:rgba(255,255,255,0.04); border-radius:10px; padding:10px 12px; display:none">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px">
+              <span style="font-weight:600; color:var(--text1); font-size:13px">Цены сегодня</span>
+              <span id="cpAvg" style="font-weight:600; color:var(--accent); font-size:13px">—</span>
+            </div>
+            <div id="cpStores" style="display:grid; grid-template-columns:1fr auto; gap:4px 12px"></div>
+            <div style="margin-top:6px; font-size:11px; opacity:0.6" id="cpSource">—</div>
+          </div>
+        </div>
+
+        <!-- Топливо -->
+        <div id="fuelControls" style="display:none">
+          <label>Вид топлива</label>
+          <select id="fuelSelect"></select>
+
+          <!-- Панель факторов -->
+          <div id="fuelFactors" style="margin-top:14px; font-size:12px; color:var(--text2); background:rgba(255,255,255,0.04); border-radius:10px; padding:10px 12px; display:none">
+            <div style="font-weight:600; color:var(--text1); margin-bottom:6px; font-size:13px">Факторы прогноза</div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px 12px">
+              <span>🛢 Brent</span>     <span id="fBrent">—</span>
+              <span>💵 USD/RUB</span>   <span id="fForex">—</span>
+              <span>📈 Brent (руб)</span><span id="fBrentRub">—</span>
+              <span>🔺 Акциз</span>     <span id="fExcise">—</span>
+              <span>🏦 НДД</span>       <span id="fNdd">—</span>
+              <span>📊 Откл. Brent</span><span id="fDev">—</span>
+            </div>
+            <div style="margin-top:6px; font-size:11px; opacity:0.6" id="fSource">—</div>
+            <div style="margin-top:3px; font-size:11px; opacity:0.55">История цен: MultiGO · Росстат (еженедельно)</div>
+          </div>
+        </div>
+
+        <!-- Акции РФ -->
+        <div id="stocksControls" style="display:none">
+          <label>Акция</label>
+          <select id="stockSelect"></select>
+          <div id="stockInfoPanel" style="margin-top:14px; font-size:12px; color:var(--text2); background:rgba(255,255,255,0.04); border-radius:10px; padding:10px 12px; display:none">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px">
+              <span style="font-weight:600; color:var(--text1); font-size:13px" id="siName">—</span>
+              <span id="siPrice" style="font-weight:600; color:var(--accent); font-size:14px">—</span>
+            </div>
+            <div style="font-size:11px; opacity:0.6" id="siSource">Источник: MOEX (Мосбиржа)</div>
+          </div>
+        </div>
+
+        <!-- Крипто -->
+        <div id="cryptoControls" style="display:none">
+          <label>Криптовалюта</label>
+          <select id="coinSelect"></select>
+          <label style="margin-top:14px">Валюта</label>
+          <div class="currency-toggle">
+            <button class="cur-btn active" id="btnUsd" onclick="setCurrency('usd')">USD $</button>
+            <button class="cur-btn"        id="btnRub" onclick="setCurrency('rub')">RUB ₽</button>
+          </div>
+        </div>
+
+        <!-- Город (для продуктов и бензина) -->
+        <div id="cityRow" style="display:none">
+          <label>Город</label>
+          <select id="citySelect"></select>
+        </div>
+
+        <!-- Горизонт для продуктов/бензина -->
+        <div id="defaultPeriodGroup">
+          <label>Горизонт прогноза</label>
+          <div class="period-grid">
+            <button class="period-btn active" data-period="week">1 неделя</button>
+            <button class="period-btn" data-period="month">1 месяц</button>
+            <button class="period-btn" data-period="year">1 год</button>
+            <button class="period-btn" data-period="3years">3 года</button>
+            <button class="period-btn" data-period="5years" style="grid-column: 1 / -1">5 лет</button>
+          </div>
+        </div>
+
+        <!-- Горизонт для крипто -->
+        <div id="cryptoPeriodGroup" style="display:none">
+          <label>Горизонт прогноза</label>
+          <div class="period-grid">
+            <button class="period-btn crypto-period active" data-period="1min">1 мин</button>
+            <button class="period-btn crypto-period" data-period="5min">5 мин</button>
+            <button class="period-btn crypto-period" data-period="10min">10 мин</button>
+            <button class="period-btn crypto-period" data-period="30min">30 мин</button>
+            <button class="period-btn crypto-period" data-period="1hour">1 час</button>
+            <button class="period-btn crypto-period" data-period="24hours">24 часа</button>
+          </div>
+          <label style="margin-top:14px">Свой период</label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+            <div>
+              <div style="font-size:11px;color:var(--text2);margin-bottom:5px">Минуты</div>
+              <input type="number" id="customPeriodMin" min="0" placeholder="0"
+                style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);
+                       padding:10px 12px;border-radius:10px;font-size:14px;font-family:inherit;box-sizing:border-box">
+            </div>
+            <div>
+              <div style="font-size:11px;color:var(--text2);margin-bottom:5px">Часы</div>
+              <input type="number" id="customPeriodHour" min="0" placeholder="0"
+                style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);
+                       padding:10px 12px;border-radius:10px;font-size:14px;font-family:inherit;box-sizing:border-box">
+            </div>
+          </div>
+          <button onclick="applyCustomPeriod()"
+            style="width:100%;margin-top:8px;background:var(--surface2);border:1px solid var(--border);
+                   color:var(--text2);padding:10px;border-radius:10px;font-size:13px;font-family:inherit;
+                   cursor:pointer;transition:all 0.2s"
+            onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
+            onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text2)'">
+            Применить
+          </button>
+        </div>
+
+        <button class="btn-predict" id="predictBtn" onclick="runForecast()">
+          <span id="btnText">Построить прогноз</span>
+          <div class="spinner" id="spinner"></div>
+        </button>
+      </div>
+    </div>
+
+    <!-- ── Правая область ── -->
+    <div>
+      <div class="ai-note">
+        <span class="icon">🧠</span>
+        <span>Нейросеть анализирует исторические данные цен, сезонность и инфляционные тренды, чтобы спрогнозировать стоимость продуктов.</span>
+      </div>
+
+      <!-- Статистика -->
+      <div class="stats-row" id="statsRow" style="display:none">
+        <div class="stat-card">
+          <div class="label">Мин. цена сейчас</div>
+          <div class="value neutral" id="statMin">—</div>
+          <div class="sub" id="statMinStore">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Макс. цена сейчас</div>
+          <div class="value neutral" id="statMax">—</div>
+          <div class="sub" id="statMaxStore">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Прогноз (среднее)</div>
+          <div class="value" id="statFuture">—</div>
+          <div class="sub" id="statPeriodLabel">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Изменение</div>
+          <div class="value" id="statChange">—</div>
+          <div class="sub" id="statChangePct">—</div>
+        </div>
+      </div>
+
+      <!-- График -->
+      <div class="chart-wrap" id="chartWrap">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title" id="chartTitle">Прогноз цен</div>
+            <div class="chart-subtitle" id="chartSubtitle">Выберите параметры и постройте прогноз</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <div class="live-ticker" id="liveTicker" style="display:none">
+              <span class="live-dot-sm"></span>
+              <span id="liveTickerPrice" class="price">—</span>
+              <span id="liveTickerSource" class="source">—</span>
+            </div>
+            <div class="chart-tabs">
+              <button class="chart-tab active" onclick="switchTab('forecast', this)">Прогноз</button>
+              <button class="chart-tab" onclick="switchTab('history', this)">История</button>
+            </div>
+          </div>
+        </div>
+        <div id="placeholderEl" class="placeholder">
+          <div class="big">📈</div>
+          <p>Выберите продукт и нажмите «Построить прогноз»</p>
+        </div>
+        <canvas id="mainChart" style="display:none"></canvas>
+      </div>
+
+      <!-- Сравнение магазинов -->
+      <div class="compare-wrap" id="compareWrap" style="display:none">
+        <div class="compare-title">Сравнение магазинов <span id="comparePeriodLabel"></span></div>
+        <table id="compareTable">
+          <thead>
+            <tr>
+              <th>Магазин</th>
+              <th>Сейчас</th>
+              <th>Прогноз</th>
+              <th>Изменение</th>
+            </tr>
+          </thead>
+          <tbody id="compareBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+const STORE_COLORS = {
+  pyaterochka: '#ff6b35',
+  magnit:      '#e63946',
+  vkusvill:    '#06d6a0',
+  perekrestok: '#4cc9f0',
+  lenta:       '#f8b500',
+};
+
+const STATION_COLORS = {
+  lukoil:      '#e8031a',
+  gazpromneft: '#00a2e0',
+  rosneft:     '#ffc200',
+  tatneft:     '#009b3a',
+  bashneft:    '#8c5fa8',
+};
+
+// Соответствие id монеты → название (заполняется при init)
+const CRYPTOS_CLIENT = {};
+
+const EXCHANGE_COLORS = {
+  bybit:   '#f7a600',   // Bybit   — жёлтый
+  okx:     '#5e9eff',   // OKX     — синий
+  mexc:    '#15d6b0',   // MEXC    — бирюзовый
+  gateio:  '#e04040',   // Gate.io — красный
+  bingx:   '#a78bfa',   // BingX   — фиолетовый
+};
+
+let mainChart = null;
+let currentTab = 'forecast';
+let lastForecastData = null;
+let lastHistoryData = null;
+let selectedPeriod = 'week';
+let selectedCryptoPeriod = '1min';
+let currentCategory = 'food';
+let selectedCurrency = 'usd';
+
+// --- Init ---
+async function init() {
+  const [products, fuelTypes, cities, coins, stocks] = await Promise.all([
+    fetch('/api/products').then(r => r.json()),
+    fetch('/api/fuel/types').then(r => r.json()),
+    fetch('/api/cities').then(r => r.json()),
+    fetch('/api/crypto/list').then(r => r.json()),
+    fetch('/api/stocks/list').then(r => r.json()),
+  ]);
+
+  const pSel = document.getElementById('productSelect');
+  Object.entries(products).forEach(([id, name]) => {
+    pSel.innerHTML += `<option value="${id}">${name}</option>`;
+  });
+
+  const stSel = document.getElementById('stockSelect');
+  Object.entries(stocks).forEach(([id, name]) => {
+    stSel.innerHTML += `<option value="${id}">${id} · ${name}</option>`;
+  });
+  stSel.value = 'SBER';
+  stSel.addEventListener('change', refreshStockInfo);
+
+  const fSel = document.getElementById('fuelSelect');
+  Object.entries(fuelTypes).forEach(([id, name]) => {
+    fSel.innerHTML += `<option value="${id}">${name}</option>`;
+  });
+  fSel.value = 'ai95';
+
+  const cSel = document.getElementById('citySelect');
+  Object.entries(cities).forEach(([id, name]) => {
+    cSel.innerHTML += `<option value="${id}">${name}</option>`;
+  });
+  cSel.value = 'moscow';
+
+  const coinSel = document.getElementById('coinSelect');
+  Object.entries(coins).forEach(([id, name]) => {
+    coinSel.innerHTML += `<option value="${id}">${name}</option>`;
+    CRYPTOS_CLIENT[id] = name;
+  });
+
+  document.querySelectorAll('.period-btn:not(.crypto-period)').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.period-btn:not(.crypto-period)').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      selectedPeriod = btn.dataset.period;
+    });
+  });
+
+  // Обновление панели "Цены сегодня" при смене продукта/города
+  pSel.addEventListener('change', refreshCityPrices);
+  cSel.addEventListener('change', refreshCityPrices);
+
+  document.querySelectorAll('.crypto-period').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.crypto-period').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      selectedCryptoPeriod = btn.dataset.period;
+      document.getElementById('customPeriodMin').value  = '';
+      document.getElementById('customPeriodHour').value = '';
+    });
+  });
+
+  loadNewsTicker();
+  setInterval(loadNewsTicker, 5 * 60 * 1000);
+}
+
+const NEWS_BADGE_LABELS = { food: 'продукты', fuel: 'бензин', stocks: 'акции' };
+
+let _newsItems = [];
+let _newsTimer = null;
+let _newsIndex = 0;
+
+async function loadNewsTicker() {
+  try {
+    const d = await fetch('/api/news').then(r => r.json());
+    if (!d.items || !d.items.length) return;
+    _newsItems = d.items;
+    document.getElementById('newsTicker').style.display = '';
+    document.getElementById('newsTickerBody').innerHTML = '';
+    if (_newsTimer) clearInterval(_newsTimer);
+    _newsIndex = 0;
+    pushNextNews();
+    _newsTimer = setInterval(pushNextNews, 3500);
+  } catch (e) {
+    console.warn('news ticker failed', e);
+  }
+}
+
+function pushNextNews() {
+  if (!_newsItems.length) return;
+  const body = document.getElementById('newsTickerBody');
+  const it   = _newsItems[_newsIndex % _newsItems.length];
+  _newsIndex++;
+
+  const tag = it.tags[0] || 'food';
+  const badge = `<span class="badge badge-${tag}">${NEWS_BADGE_LABELS[tag] || tag}</span>`;
+  const safeTitle = it.title.replace(/[<>]/g, '');
+  const a = document.createElement('a');
+  a.className = 'news-item';
+  a.target = '_blank';
+  a.rel = 'noopener';
+  a.href = it.link;
+  a.innerHTML = `${badge}<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${safeTitle}</span><span class="src">${it.source} · ${it.time}</span>`;
+  a.style.bottom = '0px';
+  body.appendChild(a);
+
+  // Сдвинуть всех вверх и сделать новый видимым
+  requestAnimationFrame(() => {
+    const items = body.querySelectorAll('.news-item');
+    const ITEM_H = 50;  // высота с отступом
+    items.forEach((el, idx) => {
+      const fromBottom = items.length - 1 - idx;
+      el.style.bottom = (fromBottom * ITEM_H) + 'px';
+      el.classList.add('visible');
+    });
+    // Плавно убираем старые, которые "выехали" наверх
+    if (items.length > 4) {
+      const old = items[0];
+      old.classList.remove('visible');
+      old.classList.add('leaving');
+      setTimeout(() => old.remove(), 750);
+    }
+  });
+}
+
+async function refreshCityPrices() {
+  const panel = document.getElementById('cityPricesPanel');
+  if (currentCategory !== 'food') { panel.style.display = 'none'; return; }
+  const product = document.getElementById('productSelect').value;
+  const city    = document.getElementById('citySelect').value;
+  if (!product || !city) return;
+  try {
+    const d = await fetch(`/api/city-prices?product=${product}&city=${city}`).then(r => r.json());
+    document.getElementById('cpAvg').textContent = `${fmtNum(d.avg)} ${d.unit} (среднее)`;
+    const stores = Object.values(d.stores).sort((a,b) => a.price - b.price);
+    document.getElementById('cpStores').innerHTML = stores.map(s =>
+      `<span>${s.store}</span><span style="color:var(--text1)">${fmtNum(s.price)} ${d.unit}</span>`
+    ).join('');
+    const updated = d.updated_at ? new Date(d.updated_at).toLocaleDateString('ru-RU') : '—';
+    document.getElementById('cpSource').textContent = `Источник: ${d.data_source} · обновлено: ${updated}`;
+    panel.style.display = '';
+  } catch (e) {
+    panel.style.display = 'none';
+  }
+}
+
+function setCurrency(cur) {
+  selectedCurrency = cur;
+  document.getElementById('btnUsd').classList.toggle('active', cur === 'usd');
+  document.getElementById('btnRub').classList.toggle('active', cur === 'rub');
+}
+
+// --- Forecast / History ---
+async function runForecast() {
+  const btn = document.getElementById('predictBtn');
+  document.getElementById('btnText').style.display = 'none';
+  document.getElementById('spinner').style.display = 'block';
+  btn.disabled = true;
+
+  try {
+    if (currentTab === 'history') {
+      await runHistoryOnly();
+    } else if (currentCategory === 'food')      await runFoodForecast();
+    else if (currentCategory === 'fuel')         await runFuelForecast();
+    else if (currentCategory === 'stocks')       await runStocksForecast();
+    else                                         await runCryptoForecast();
+  } catch(e) {
+    alert('Ошибка: ' + e.message);
+  } finally {
+    document.getElementById('btnText').style.display = 'inline';
+    document.getElementById('spinner').style.display = 'none';
+    btn.disabled = false;
+  }
+}
+
+async function runHistoryOnly() {
+  const days = periodToDays();
+
+  let historyUrl;
+  if (currentCategory === 'food') {
+    const product = document.getElementById('productSelect').value;
+    const city    = document.getElementById('citySelect').value;
+    historyUrl = `/api/history-all?product=${product}&days=${days}&city=${city}`;
+  } else if (currentCategory === 'stocks') {
+    const ticker = document.getElementById('stockSelect').value;
+    historyUrl = `/api/stocks/history-all?ticker=${ticker}&days=${days}`;
+  } else if (currentCategory === 'fuel') {
+    const fuel = document.getElementById('fuelSelect').value;
+    const city = document.getElementById('citySelect').value;
+    historyUrl = `/api/fuel/history-all?fuel=${fuel}&days=${days}&city=${city}`;
+  } else {
+    const coin     = document.getElementById('coinSelect').value;
+    const currency = selectedCurrency;
+    const minutes  = cryptoPeriodToMinutes(selectedCryptoPeriod);
+    historyUrl = `/api/crypto/history-intraday?coin=${coin}&minutes=${minutes}&currency=${currency}`;
+  }
+
+  const history = await fetch(historyUrl).then(r => r.json());
+  lastHistoryData = { ...history, mode: currentCategory, unit: history.unit || lastForecastData?.unit || '₽' };
+
+  renderHistoryChart();
+
+  document.getElementById('placeholderEl').style.display = 'none';
+  document.getElementById('mainChart').style.display     = 'block';
+  document.getElementById('statsRow').style.display      = 'none';
+  document.getElementById('compareWrap').style.display   = 'none';
+  stopLive();
+
+  const periodLabel = currentCategory === 'crypto'
+    ? (CRYPTO_PERIOD_LABELS_JS[selectedCryptoPeriod]
+       || (selectedCryptoPeriod.startsWith('custom_')
+           ? `${cryptoPeriodToMinutes(selectedCryptoPeriod)} мин`
+           : selectedCryptoPeriod))
+    : PERIOD_LABELS_JS[selectedPeriod] || selectedPeriod;
+
+  document.getElementById('chartSubtitle').textContent = `История · ${periodLabel}`;
+}
+
+const PERIOD_LABELS_JS = {
+  day: '1 день', week: '1 неделя', month: '1 месяц',
+  year: '1 год', '3years': '3 года', '5years': '5 лет',
+};
+const CRYPTO_PERIOD_LABELS_JS = {
+  '1min': '1 мин', '5min': '5 мин', '10min': '10 мин',
+  '30min': '30 мин', '1hour': '1 час', '24hours': '24 часа',
+};
+
+async function runFoodForecast() {
+  const product = document.getElementById('productSelect').value;
+  const period  = selectedPeriod;
+  const city    = document.getElementById('citySelect').value;
+
+  const [forecast, history] = await Promise.all([
+    fetch(`/api/predict-all?product=${product}&period=${period}&city=${city}`).then(r => r.json()),
+    fetch(`/api/history-all?product=${product}&days=90&city=${city}`).then(r => r.json()),
+  ]);
+
+  lastForecastData = { ...forecast, mode: 'food' };
+  lastHistoryData  = { ...history,  mode: 'food' };
+
+  updateStats(forecast, 'stores');
+  drawChart();
+  renderCompareTable(forecast, 'food');
+
+  document.getElementById('placeholderEl').style.display = 'none';
+  document.getElementById('mainChart').style.display = 'block';
+  document.getElementById('statsRow').style.display = 'grid';
+  document.getElementById('compareWrap').style.display = 'block';
+  startLive();
+
+  const pName = document.getElementById('productSelect').options[document.getElementById('productSelect').selectedIndex].text;
+  document.getElementById('chartTitle').textContent = pName;
+  document.getElementById('chartSubtitle').textContent =
+    `${forecast.city} · Все магазины · Прогноз ${forecast.period_label}`;
+}
+
+async function runStocksForecast() {
+  const ticker = document.getElementById('stockSelect').value;
+  const period = selectedPeriod;
+
+  const [forecast, history] = await Promise.all([
+    fetch(`/api/stocks/predict-all?ticker=${ticker}&period=${period}`).then(r => r.json()),
+    fetch(`/api/stocks/history-all?ticker=${ticker}&days=180`).then(r => r.json()),
+  ]);
+  if (forecast.error) throw new Error(forecast.error);
+
+  lastForecastData = { ...forecast, mode: 'stocks' };
+  lastHistoryData  = { ...history,  mode: 'stocks' };
+
+  updateStockStats(forecast);
+  drawChart();
+  document.getElementById('compareWrap').style.display = 'none';
+
+  document.getElementById('placeholderEl').style.display = 'none';
+  document.getElementById('mainChart').style.display     = 'block';
+  document.getElementById('statsRow').style.display      = 'grid';
+  startLive();
+
+  document.getElementById('chartTitle').textContent    = `${forecast.ticker} · ${forecast.name}`;
+  document.getElementById('chartSubtitle').textContent =
+    `MOEX · Прогноз ${forecast.period_label} · ${forecast.unit}`;
+}
+
+function updateStockStats(forecast) {
+  const u = forecast.unit || '₽';
+  const cur = forecast.current_price, fin = forecast.final_price;
+  const chg = forecast.change, pct = forecast.change_pct;
+  document.getElementById('statMin').textContent      = fmtPrice(cur, u);
+  document.getElementById('statMinStore').textContent = 'Текущая';
+  document.getElementById('statMax').textContent      = fmtPrice(fin, u);
+  document.getElementById('statMaxStore').textContent = 'Прогноз ' + forecast.period_label;
+  document.getElementById('statFuture').textContent      = fmtPrice(fin, u);
+  document.getElementById('statPeriodLabel').textContent = forecast.ticker;
+  const sign = chg >= 0 ? '+' : '';
+  document.getElementById('statChange').textContent      = sign + fmtPrice(chg, u);
+  document.getElementById('statChangePct').textContent   = sign + pct + '%';
+  document.getElementById('statChange').className   = 'value ' + (chg > 0 ? 'up' : chg < 0 ? 'down' : 'neutral');
+  document.getElementById('statChangePct').className = 'sub '  + (chg > 0 ? 'up' : chg < 0 ? 'down' : '');
+}
+
+async function refreshStockInfo() {
+  const panel = document.getElementById('stockInfoPanel');
+  if (currentCategory !== 'stocks') { panel.style.display = 'none'; return; }
+  const ticker = document.getElementById('stockSelect').value;
+  if (!ticker) return;
+  const name = document.getElementById('stockSelect').options[document.getElementById('stockSelect').selectedIndex].text;
+  document.getElementById('siName').textContent = name;
+  document.getElementById('siPrice').textContent = '…';
+  panel.style.display = '';
+  try {
+    const d = await fetch(`/api/live-price?category=stocks&ticker=${ticker}`).then(r => r.json());
+    document.getElementById('siPrice').textContent = `${fmtNum(d.price)} ${d.unit}`;
+    document.getElementById('siSource').textContent = `Источник: ${d.source} · обновлено сейчас`;
+  } catch (e) {
+    document.getElementById('siPrice').textContent = '—';
+  }
+}
+
+async function runCryptoForecast() {
+  const coin     = document.getElementById('coinSelect').value;
+  const period   = selectedCryptoPeriod;
+  const currency = selectedCurrency;
+
+  const [forecast, history] = await Promise.all([
+    fetch(`/api/crypto/predict-all?coin=${coin}&period=${period}&currency=${currency}`).then(r => r.json()),
+    fetch(`/api/crypto/history-all?coin=${coin}&days=90&currency=${currency}`).then(r => r.json()),
+  ]);
+
+  lastForecastData = { ...forecast, mode: 'crypto' };
+  lastHistoryData  = { ...history,  mode: 'crypto' };
+
+  updateStats(forecast, 'exchanges');
+  drawChart();
+  renderCompareTable(forecast, 'crypto');
+
+  document.getElementById('placeholderEl').style.display = 'none';
+  document.getElementById('mainChart').style.display     = 'block';
+  document.getElementById('statsRow').style.display      = 'grid';
+  document.getElementById('compareWrap').style.display   = 'block';
+  startLive();
+
+  document.getElementById('chartTitle').textContent    = forecast.coin;
+  document.getElementById('chartSubtitle').textContent =
+    `Все биржи · Прогноз ${forecast.period_label} · ${forecast.unit}`;
+}
+
+async function runFuelForecast() {
+  const fuel   = document.getElementById('fuelSelect').value;
+  const period = selectedPeriod;
+  const city   = document.getElementById('citySelect').value;
+
+  const [forecast, history] = await Promise.all([
+    fetch(`/api/fuel/predict-all?fuel=${fuel}&period=${period}&city=${city}`).then(r => r.json()),
+    fetch(`/api/fuel/history-all?fuel=${fuel}&days=90&city=${city}`).then(r => r.json()),
+  ]);
+
+  lastForecastData = { ...forecast, mode: 'fuel' };
+  lastHistoryData  = { ...history,  mode: 'fuel' };
+
+  updateStats(forecast, 'stations');
+  drawChart();
+  renderCompareTable(forecast, 'fuel');
+
+  document.getElementById('placeholderEl').style.display = 'none';
+  document.getElementById('mainChart').style.display = 'block';
+  document.getElementById('statsRow').style.display = 'grid';
+  document.getElementById('compareWrap').style.display = 'block';
+  startLive();
+
+  const fName = document.getElementById('fuelSelect').options[document.getElementById('fuelSelect').selectedIndex].text;
+  document.getElementById('chartTitle').textContent = fName;
+  document.getElementById('chartSubtitle').textContent =
+    `${forecast.city} · Все АЗС · Прогноз ${forecast.period_label}`;
+
+  // Отображаем панель факторов
+  const fp = forecast.factors;
+  const fPanel = document.getElementById('fuelFactors');
+  if (fp) {
+    const sign = fp.deviation_pct >= 0 ? '+' : '';
+    const devColor = fp.deviation_pct > 3 ? '#f87171' : fp.deviation_pct < -3 ? '#34d399' : 'inherit';
+    document.getElementById('fBrent').textContent    = `$${fp.brent_usd}`;
+    document.getElementById('fForex').textContent    = `${fp.usd_rub} ₽`;
+    document.getElementById('fBrentRub').textContent = `${fp.brent_rub} ₽/бар.`;
+    document.getElementById('fExcise').textContent   = `${fp.excise} ₽/л`;
+    document.getElementById('fNdd').textContent      = `${fp.ndd} ₽/л`;
+    document.getElementById('fDev').innerHTML        = `<span style="color:${devColor}">${sign}${fp.deviation_pct}%</span>`;
+    document.getElementById('fSource').textContent   = forecast.data_source || '';
+    fPanel.style.display = '';
+  } else {
+    fPanel.style.display = 'none';
+  }
+}
+
+// --- Stats: мин/макс сейчас + средний прогноз + изменение ---
+function updateStats(forecast, groupKey) {
+  const unit = forecast.unit || '';
+
+  if (groupKey === 'exchanges') {
+    // Крипто: мин/макс берём из бирж, прогноз — единая линия монеты
+    const nameKey = 'exchange';
+    const entries = Object.values(forecast.exchanges);
+    const sorted  = [...entries].sort((a, b) => a.current_price - b.current_price);
+    document.getElementById('statMin').textContent      = fmtPrice(sorted[0].current_price, unit);
+    document.getElementById('statMinStore').textContent = sorted[0][nameKey];
+    document.getElementById('statMax').textContent      = fmtPrice(sorted[sorted.length - 1].current_price, unit);
+    document.getElementById('statMaxStore').textContent = sorted[sorted.length - 1][nameKey];
+
+    const cur = forecast.current_price;
+    const fin = forecast.final_price;
+    const chg = forecast.change;
+    const pct = forecast.change_pct;
+    document.getElementById('statFuture').textContent      = fmtPrice(fin, unit);
+    document.getElementById('statPeriodLabel').textContent = forecast.period_label;
+    const sign = chg >= 0 ? '+' : '';
+    document.getElementById('statChange').textContent  = sign + fmtPrice(chg, unit);
+    document.getElementById('statChangePct').textContent = sign + pct + '%';
+    document.getElementById('statChange').className  = 'value ' + (chg > 0 ? 'up' : chg < 0 ? 'down' : 'neutral');
+    document.getElementById('statChangePct').className = 'sub '  + (chg > 0 ? 'up' : chg < 0 ? 'down' : '');
+    return;
+  }
+
+  // Продукты / Бензин
+  const nameMap = { stations: 'station', stores: 'store' };
+  const nameKey = nameMap[groupKey] || 'store';
+  const entries = Object.values(forecast[groupKey]);
+  const sorted  = [...entries].sort((a, b) => a.current_price - b.current_price);
+
+  document.getElementById('statMin').textContent      = fmtPrice(sorted[0].current_price, unit);
+  document.getElementById('statMinStore').textContent = sorted[0][nameKey];
+  document.getElementById('statMax').textContent      = fmtPrice(sorted[sorted.length - 1].current_price, unit);
+  document.getElementById('statMaxStore').textContent = sorted[sorted.length - 1][nameKey];
+
+  const avgCurrent = entries.reduce((s, d) => s + d.current_price, 0) / entries.length;
+  const avgFinal   = entries.reduce((s, d) => s + d.final_price,   0) / entries.length;
+  const change     = round2(avgFinal - avgCurrent);
+  const changePct  = round2((change / avgCurrent) * 100);
+
+  document.getElementById('statFuture').textContent      = fmtPrice(avgFinal, unit);
+  document.getElementById('statPeriodLabel').textContent = forecast.period_label;
+
+  const sign = change >= 0 ? '+' : '';
+  document.getElementById('statChange').textContent   = sign + fmtPrice(change, unit);
+  document.getElementById('statChangePct').textContent = sign + changePct + '%';
+  document.getElementById('statChange').className   = 'value ' + (change > 0 ? 'up' : change < 0 ? 'down' : 'neutral');
+  document.getElementById('statChangePct').className = 'sub '  + (change > 0 ? 'up' : change < 0 ? 'down' : '');
+}
+
+// --- Единая точка рисования графика ---
+function drawChart() {
+  if (currentTab === 'forecast') renderForecastChart();
+  else renderHistoryChart();
+}
+
+// --- Строит datasets (универсально) ---
+function buildDatasets(entries, colorMap, labelKey, dataKey, many, borderWidth) {
+  return entries.map(([id, d]) => {
+    const color = colorMap[id] || '#aaa';
+    return {
+      label: d[labelKey] || id,
+      data: d[dataKey],
+      borderColor: color,
+      backgroundColor: 'transparent',
+      borderWidth,
+      pointRadius: many ? 0 : (borderWidth > 2 ? 4 : 3),
+      pointHoverRadius: 6,
+      pointBackgroundColor: color,
+      tension: borderWidth > 2 ? 0.4 : 0.3,
+    };
+  });
+}
+
+function getChartConfig(d, dataKey, bw) {
+  const many = d.dates.length > 50;
+  if (d.mode === 'fuel') {
+    return buildDatasets(Object.entries(d.stations), STATION_COLORS, 'station', dataKey, many, bw);
+  }
+  return buildDatasets(Object.entries(d.stores || {}), STORE_COLORS, 'store', dataKey, many, bw);
+}
+
+// --- Одна линия для крипты ---
+function cryptoDataset(data, label, symbol) {
+  const COIN_COLORS = {
+    btc: '#f7931a', eth: '#627eea', bnb: '#f3ba2f', sol: '#9945ff',
+    xrp: '#00aae4', ton: '#0088cc', doge: '#c2a633', avax: '#e84142',
+    ltc: '#bfbbbb', link: '#2a5ada', dot: '#e6007a', trx: '#ef0027', ada: '#0033ad',
+  };
+  const coinId = Object.keys(CRYPTOS_CLIENT).find(k => CRYPTOS_CLIENT[k] === label) || 'btc';
+  const color  = COIN_COLORS[coinId] || '#a78bfa';
+  const many   = data.length > 50;
+  return [{
+    label,
+    data,
+    borderColor: color,
+    backgroundColor: hexToRgba(color, 0.08),
+    borderWidth: 2.5,
+    pointRadius: many ? 0 : 4,
+    pointHoverRadius: 6,
+    pointBackgroundColor: color,
+    fill: true,
+    tension: 0.4,
+  }];
+}
+
+function singleLineDataset(data, label, color) {
+  const many = data.length > 50;
+  return [{
+    label,
+    data,
+    borderColor: color,
+    backgroundColor: hexToRgba(color, 0.08),
+    borderWidth: 2.5,
+    pointRadius: many ? 0 : 4,
+    pointHoverRadius: 6,
+    pointBackgroundColor: color,
+    fill: true,
+    tension: 0.4,
+  }];
+}
+
+// --- График прогноза ---
+function renderForecastChart() {
+  if (!lastForecastData) return;
+  if (mainChart) mainChart.destroy();
+  const d = lastForecastData;
+  let datasets;
+  if (d.mode === 'crypto') {
+    datasets = cryptoDataset(d.chart, d.coin, d.symbol);
+  } else if (d.mode === 'stocks') {
+    datasets = singleLineDataset(d.chart, `${d.ticker} · ${d.name}`, '#22c55e');
+  } else {
+    datasets = getChartConfig(d, 'predictions', 2.5);
+  }
+  mainChart = new Chart(
+    document.getElementById('mainChart').getContext('2d'),
+    { type: 'line', data: { labels: d.dates, datasets }, options: chartOptions(d.unit) }
+  );
+}
+
+// --- График истории ---
+function renderHistoryChart() {
+  if (!lastHistoryData) return;
+  if (mainChart) mainChart.destroy();
+  const d = lastHistoryData;
+  let datasets;
+  if (d.mode === 'crypto') {
+    const coinSel = document.getElementById('coinSelect');
+    const coin = lastForecastData?.coin
+      || coinSel.options[coinSel.selectedIndex]?.text
+      || 'Крипто';
+    datasets = cryptoDataset(d.chart, coin);
+  } else if (d.mode === 'stocks') {
+    const label = d.ticker ? `${d.ticker} · ${d.name}` : 'Акция';
+    datasets = singleLineDataset(d.chart, label, '#22d3ee');
+  } else {
+    datasets = getChartConfig(d, 'prices', 2);
+  }
+  mainChart = new Chart(
+    document.getElementById('mainChart').getContext('2d'),
+    { type: 'line', data: { labels: d.times || d.dates, datasets }, options: chartOptions(d.unit) }
+  );
+}
+
+function chartOptions(unit) {
+  const u = unit || '₽';
+  return {
+    responsive: true,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: {
+        position: 'bottom',
+        labels: {
+          color: '#c8cadc',
+          font: { size: 13 },
+          padding: 20,
+          usePointStyle: true,
+          pointStyleWidth: 14,
+          boxHeight: 4,
+        },
+      },
+      tooltip: {
+        itemSort: (a, b) => b.parsed.y - a.parsed.y,
+        backgroundColor: '#1a1d27',
+        borderColor: '#2e3248',
+        borderWidth: 1,
+        titleColor: '#e8eaf0',
+        bodyColor: '#c8cadc',
+        footerColor: '#8b8fa8',
+        padding: 12,
+        callbacks: {
+          label: ctx => `  ● ${ctx.dataset.label}: ${fmtNum(ctx.parsed.y)} ${u}`,
+        },
+      },
+    },
+    scales: {
+      x: {
+        grid: { color: 'rgba(46,50,72,0.4)' },
+        ticks: { color: '#8b8fa8', maxTicksLimit: 8, font: { size: 11 } },
+      },
+      y: {
+        grid: { color: 'rgba(46,50,72,0.4)' },
+        ticks: { color: '#8b8fa8', font: { size: 11 }, callback: v => fmtNum(v) + ' ' + u },
+      },
+    },
+  };
+}
+
+function hexToRgba(hex, alpha) {
+  const r = parseInt(hex.slice(1,3), 16);
+  const g = parseInt(hex.slice(3,5), 16);
+  const b = parseInt(hex.slice(5,7), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+// --- Tab switch ---
+function switchTab(tab, el) {
+  currentTab = tab;
+  document.querySelectorAll('.chart-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+
+  const btnText = document.getElementById('btnText');
+  if (tab === 'history') {
+    btnText.textContent = 'Посмотреть историю';
+  } else {
+    btnText.textContent = 'Построить прогноз';
+  }
+
+  drawChart();
+}
+
+// Конвертация периода в количество дней для истории
+function periodToDays() {
+  const period = currentCategory === 'crypto' ? selectedCryptoPeriod : selectedPeriod;
+  const map = {
+    'day': 1, 'week': 7, 'month': 30, 'year': 365,
+    '3years': 365 * 3, '5years': 365 * 5,
+    '1min': 1, '5min': 1, '10min': 1, '30min': 1,
+    '1hour': 1, '24hours': 1,
+  };
+  if (period.startsWith('custom_')) {
+    const mins = parseInt(period.slice(7));
+    return Math.max(1, Math.ceil(mins / 1440));
+  }
+  return map[period] || 30;
+}
+
+// --- Compare table (универсальная) ---
+function renderCompareTable(forecast, mode) {
+  const cfg = {
+    food:   { groupKey: 'stores',    nameKey: 'store',    colorMap: STORE_COLORS,    title: 'Сравнение магазинов', badge: 'дешевле всех' },
+    fuel:   { groupKey: 'stations',  nameKey: 'station',  colorMap: STATION_COLORS,  title: 'Сравнение АЗС',       badge: 'дешевле всех' },
+    crypto: { groupKey: 'exchanges', nameKey: 'exchange', colorMap: EXCHANGE_COLORS, title: 'Сравнение бирж',      badge: 'дешевле всех' },
+  }[mode];
+  if (!cfg) return;
+
+  const unit = forecast.unit || '₽';
+
+  document.getElementById('compareWrap').querySelector('.compare-title').innerHTML =
+    `${cfg.title} <span id="comparePeriodLabel">· ${forecast.period_label}</span>`;
+
+  const entries = Object.entries(forecast[cfg.groupKey])
+    .sort((a, b) => mode === 'crypto'
+      ? b[1].final_price - a[1].final_price
+      : a[1].final_price - b[1].final_price);
+
+  const tbody = document.getElementById('compareBody');
+  tbody.innerHTML = '';
+
+  entries.forEach(([id, d], idx) => {
+    const isRef  = idx === 0;
+    const sign   = d.change_pct >= 0 ? '+' : '';
+    const cls    = d.change_pct > 0 ? 'up' : 'down';
+    const color  = cfg.colorMap[id] || '#999';
+    const badge  = mode === 'crypto'
+      ? (isRef ? '<span class="best-badge">выше всех</span>' : '')
+      : (isRef ? `<span class="best-badge">${cfg.badge}</span>` : '');
+    tbody.innerHTML += `
+      <tr>
+        <td>
+          <span class="store-dot" style="background:${color}"></span>
+          ${d[cfg.nameKey]} ${badge}
+        </td>
+        <td>${fmtPrice(d.current_price, unit)}</td>
+        <td><strong>${fmtPrice(d.final_price, unit)}</strong></td>
+        <td class="${cls}">${sign}${d.change_pct}%</td>
+      </tr>`;
+  });
+}
+
+function fmtNum(v) {
+  if (typeof v !== 'number') v = parseFloat(v);
+  if (isNaN(v)) return '—';
+  // Очень маленькие числа (DOGE, ADA и т.п.)
+  if (v !== 0 && Math.abs(v) < 0.0001) return v.toFixed(8).replace(/0+$/, '');
+  if (Math.abs(v) < 0.01)  return v.toFixed(6).replace(/0+$/, '');
+  if (Math.abs(v) < 1)     return v.toFixed(4).replace(/0+$/, '');
+  if (Math.abs(v) < 10)    return v.toFixed(3).replace(/\.?0+$/, '');
+  if (Math.abs(v) < 1000)  return v.toFixed(2).replace(/\.?0+$/, '');
+  // Форматируем с разделителями тысяч — пробел, десятичная — точка
+  const [int, dec] = Math.abs(v) < 1e15
+    ? v.toFixed(2).split('.')
+    : [String(Math.round(v)), '00'];
+  const intFmt = int.replace(/\B(?=(\d{3})+(?!\d))/g, '\u00a0'); // неразрывный пробел
+  return dec && dec !== '00' ? intFmt + '.' + dec : intFmt;
+}
+
+function fmtPrice(v, unit) {
+  return fmtNum(v) + ' ' + (unit || '');
+}
+
+function round2(v) { return Math.round(v * 100) / 100; }
+
+// ── Live price polling ────────────────────────────────────
+let _liveTimer = null;
+
+function startLive() {
+  stopLive();
+  fetchLive();
+  const interval = currentCategory === 'crypto' ? 3_000
+                 : currentCategory === 'stocks' ? 15_000
+                 : currentCategory === 'food'   ? 30_000
+                 : 3_600_000;
+  _liveTimer = setInterval(fetchLive, interval);
+  document.getElementById('liveTicker').style.display = '';
+}
+
+function stopLive() {
+  if (_liveTimer) { clearInterval(_liveTimer); _liveTimer = null; }
+  document.getElementById('liveTicker').style.display = 'none';
+}
+
+async function fetchLive() {
+  let url = `/api/live-price?category=${currentCategory}`;
+  if (currentCategory === 'food') {
+    url += `&product=${document.getElementById('productSelect').value}`;
+    url += `&city=${document.getElementById('citySelect').value}`;
+  } else if (currentCategory === 'fuel') {
+    url += `&fuel=${document.getElementById('fuelSelect').value}`;
+    url += `&city=${document.getElementById('citySelect').value}`;
+  } else if (currentCategory === 'stocks') {
+    url += `&ticker=${document.getElementById('stockSelect').value}`;
+  } else if (currentCategory === 'crypto') {
+    url += `&coin=${document.getElementById('coinSelect').value}`;
+    url += `&currency=${selectedCurrency}`;
+  }
+  try {
+    const d = await fetch(url).then(r => r.json());
+    document.getElementById('liveTickerPrice').textContent  = fmtNum(d.price) + ' ' + d.unit;
+    document.getElementById('liveTickerSource').textContent = d.source;
+  } catch(e) {}
+}
+
+function cryptoPeriodToMinutes(period) {
+  if (period.startsWith('custom_')) return parseInt(period.slice(7));
+  return {'1min':1,'5min':5,'10min':10,'30min':30,'1hour':60,'24hours':1440}[period] || 60;
+}
+
+function applyCustomPeriod() {
+  const mins  = parseInt(document.getElementById('customPeriodMin').value)  || 0;
+  const hours = parseInt(document.getElementById('customPeriodHour').value) || 0;
+  const total = mins + hours * 60;
+  if (total < 1) return;
+  selectedCryptoPeriod = `custom_${total}min`;
+  document.querySelectorAll('.crypto-period').forEach(b => b.classList.remove('active'));
+}
+
+function goHome() {
+  document.getElementById('welcomeScreen').style.display = '';
+  document.getElementById('backRow').style.display       = 'none';
+  document.getElementById('mainGrid').style.display      = 'none';
+  document.getElementById('headerSub').textContent       = 'Прогноз цен';
+  stopLive();
+  if (mainChart) { mainChart.destroy(); mainChart = null; }
+  lastForecastData = null;
+  lastHistoryData  = null;
+}
+
+// --- Переключатель категории ---
+function switchCategory(cat) {
+  currentCategory = cat;
+
+  document.getElementById('welcomeScreen').style.display = 'none';
+  document.getElementById('backRow').style.display       = '';
+  document.getElementById('mainGrid').style.display      = '';
+
+  document.getElementById('tabFood').classList.toggle('active',   cat === 'food');
+  document.getElementById('tabFuel').classList.toggle('active',   cat === 'fuel');
+  document.getElementById('tabStocks').classList.toggle('active', cat === 'stocks');
+  document.getElementById('tabCrypto').classList.toggle('active', cat === 'crypto');
+
+  document.getElementById('foodControls').style.display    = cat === 'food'   ? '' : 'none';
+  document.getElementById('fuelControls').style.display    = cat === 'fuel'   ? '' : 'none';
+  document.getElementById('stocksControls').style.display  = cat === 'stocks' ? '' : 'none';
+  document.getElementById('cryptoControls').style.display  = cat === 'crypto' ? '' : 'none';
+  document.getElementById('cityRow').style.display         = (cat === 'fuel' || cat === 'food') ? '' : 'none';
+  document.getElementById('defaultPeriodGroup').style.display  = cat === 'crypto' ? 'none' : '';
+  document.getElementById('cryptoPeriodGroup').style.display   = cat === 'crypto' ? '' : 'none';
+
+  if (cat === 'food') refreshCityPrices();
+  else document.getElementById('cityPricesPanel').style.display = 'none';
+  if (cat === 'stocks') refreshStockInfo();
+  else document.getElementById('stockInfoPanel').style.display = 'none';
+
+  const subtitles = {
+    food:   'Прогноз цен на продукты в России',
+    fuel:   'Прогноз цен на бензин в России',
+    stocks: 'Прогноз цен акций Мосбиржи',
+    crypto: 'Прогноз цен криптовалют по биржам',
+  };
+  document.getElementById('headerSub').textContent = subtitles[cat];
+
+  // Сброс графика
+  lastForecastData = null;
+  lastHistoryData  = null;
+  if (mainChart) { mainChart.destroy(); mainChart = null; }
+  document.getElementById('placeholderEl').style.display = '';
+  document.getElementById('mainChart').style.display     = 'none';
+  document.getElementById('statsRow').style.display      = 'none';
+  document.getElementById('compareWrap').style.display   = 'none';
+  document.getElementById('chartTitle').textContent      = subtitles[cat];
+  document.getElementById('chartSubtitle').textContent   = 'Выберите параметры и постройте прогноз';
+  document.getElementById('btnText').textContent         = 'Построить прогноз';
+  currentTab = 'forecast';
+  document.querySelectorAll('.chart-tab').forEach((t, i) => t.classList.toggle('active', i === 0));
+}
+
+init();
+</script>
+</body>
+</html>
