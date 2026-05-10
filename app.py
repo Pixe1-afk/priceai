@@ -9,6 +9,10 @@ import math
 import random
 import time
 import requests as http_requests
+import urllib3
+# Гасим InsecureRequestWarning — намеренно используем verify=False только для
+# конкретного публичного источника (Rosstat) с известной проблемой SSL-цепочки.
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 import csv as _csv
 import io as _io
 from bs4 import BeautifulSoup
@@ -476,11 +480,13 @@ def fetch_rosstat_prices() -> dict:
 
     result = {}
     try:
+        # Rosstat: их SSL-цепочка часто не валидируется через certifi на Linux.
+        # Данные публичные (цены), MITM-риск минимален.
         r = http_requests.get(
             'https://rosstat.gov.ru/price',
             headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'},
             timeout=20,
-            verify=HTTP_VERIFY_TLS,
+            verify=False,
         )
         r.raise_for_status()
         soup = BeautifulSoup(r.content, 'html.parser')
@@ -747,7 +753,10 @@ def generate_history(base_price: float, days: int = 365) -> list:
 # --- Старт фоновых задач (после того, как generate_history определён) ---
 load_real_prices()
 load_prices_history()
-ensure_history_seeded()
+# Seeding 1500 рядов истории может занять 20-60 сек на маленьких инстансах.
+# Делаем в фоне, чтобы gunicorn-воркеры стартовали мгновенно.
+# get_history_series() имеет fallback на синтетику, пока seed не готов.
+threading.Thread(target=ensure_history_seeded, daemon=True).start()
 threading.Thread(target=_auto_update_loop, daemon=True).start()
 threading.Thread(target=_daily_snapshot_loop, daemon=True).start()
 
